@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室鑰匙管理系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #ecf0f1;
+            --text-color: #34495e;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .records {
+            margin-top: 30px;
+        }
+        .record {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .record p {
+            margin: 5px 0;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #ddd;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .error {
+            color: red;
+            margin-top: 5px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        #otherContent {
+            width: calc(100% - 20px);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <h1>教室鑰匙管理系統</h1>
+        
+        <div class="tabs">
+            <div :class="['tab', { active: activeTab === 'borrow' }]" @click="activeTab = 'borrow'">借用鑰匙</div>
+            <div :class="['tab', { active: activeTab === 'return' }]" @click="activeTab = 'return'">歸還鑰匙</div>
+            <div :class="['tab', { active: activeTab === 'records' }]" @click="activeTab = 'records'">借用紀錄</div>
+        </div>
+        
+        <div v-if="activeTab === 'borrow'">
+            <h2>借用鑰匙</h2>
+            <div class="form-group">
+                <label for="name">姓名</label>
+                <input id="name" v-model="newRecord.name" required>
+            </div>
+            <div class="form-group">
+                <label for="studentId">學號</label>
+                <input id="studentId" v-model="newRecord.studentId" required>
+            </div>
+            <div class="form-group">
+                <label for="classroom">欲借用的教室</label>
+                <select id="classroom" v-model="newRecord.classroom" required>
+                    <option value="">請選擇教室</option>
+                    <option v-for="room in classrooms" :key="room" :value="room">{{ room }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="deposit">抵押證件</label>
+                <select id="deposit" v-model="newRecord.deposit" required>
+                    <option value="">請選擇抵押證件</option>
+                    <option v-for="item in depositItems" :key="item" :value="item">{{ item }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>鑰匙包內容物</label>
+                <div class="checkbox-group">
+                    <div v-for="item in keyContents" :key="item" class="checkbox-item">
+                        <input type="checkbox" :id="item" :value="item" v-model="newRecord.keyContents">
+                        <label :for="item">{{ item }}</label>
+                    </div>
+                </div>
+                <div v-if="newRecord.keyContents.includes('其他')" class="checkbox-item">
+                    <input id="otherContent" v-model="newRecord.otherContent" placeholder="請說明其他內容">
+                </div>
+            </div>
+            <button @click="borrowKey">借用鑰匙</button>
+            <p v-if="borrowError" class="error">{{ borrowError }}</p>
+        </div>
+        
+        <div v-if="activeTab === 'return'">
+            <h2>歸還鑰匙</h2>
+            <div class="form-group">
+                <label for="returnStudentId">學號</label>
+                <input id="returnStudentId" v-model="returnStudentId" required>
+            </div>
+            <button @click="returnKey">歸還鑰匙</button>
+            <p v-if="returnError" class="error">{{ returnError }}</p>
+        </div>
+        
+        <div v-if="activeTab === 'records'" class="records">
+            <h2>借用紀錄</h2>
+            <div v-for="record in records" :key="record.id" class="record">
+                <p><strong>姓名:</strong> {{ record.name }}</p>
+                <p><strong>學號:</strong> {{ record.studentId }}</p>
+                <p><strong>教室:</strong> {{ record.classroom }}</p>
+                <p><strong>抵押證件:</strong> {{ record.deposit }}</p>
+                <p><strong>鑰匙包內容物:</strong> {{ formatKeyContents(record) }}</p>
+                <p><strong>借出時間:</strong> {{ formatDate(record.borrowTime) }}</p>
+                <p><strong>歸還時間:</strong> {{ record.returnTime ? formatDate(record.returnTime) : '尚未歸還' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    activeTab: 'borrow',
+                    newRecord: {
+                        name: '',
+                        studentId: '',
+                        classroom: '',
+                        deposit: '',
+                        keyContents: [],
+                        otherContent: ''
+                    },
+                    returnStudentId: '',
+                    records: [],
+                    borrowError: '',
+                    returnError: '',
+                    classrooms: ['D107', 'D108', 'D110', 'D201', 'D203', 'D205A', 'D205B', 'D208', 'D417', 'E004', 'E301'],
+                    depositItems: ['學生證', '駕照', '身分證', '健保卡'],
+                    keyContents: ['鑰匙', '電力卡', '白板筆', '遙控器', '簡報筆', '麥克風', '其他']
+                }
+            },
+            methods: {
+                borrowKey() {
+                    if (!this.newRecord.name || !this.newRecord.studentId || !this.newRecord.classroom || !this.newRecord.deposit || this.newRecord.keyContents.length === 0) {
+                        this.borrowError = '請填寫所有必要欄位';
+                        return;
+                    }
+                    if (this.newRecord.keyContents.includes('其他') && !this.newRecord.otherContent) {
+                        this.borrowError = '請說明其他內容';
+                        return;
+                    }
+                    const record = {
+                        ...this.newRecord,
+                        id: Date.now(),
+                        borrowTime: new Date(),
+                        returnTime: null
+                    };
+                    this.records.push(record);
+                    this.newRecord = {
+                        name: '',
+                        studentId: '',
+                        classroom: '',
+                        deposit: '',
+                        keyContents: [],
+                        otherContent: ''
+                    };
+                    this.borrowError = '';
+                    alert('鑰匙借用成功！');
+                },
+                returnKey() {
+                    const record = this.records.find(r => r.studentId === this.returnStudentId && !r.returnTime);
+                    if (record) {
+                        record.returnTime = new Date();
+                        this.returnStudentId = '';
+                        this.returnError = '';
+                        alert('鑰匙歸還成功！');
+                    } else {
+                        this.returnError = '未找到對應的借用紀錄或鑰匙已歸還';
+                    }
+                },
+                formatDate(date) {
+                    return moment(date).format('YYYY-MM-DD HH:mm:ss');
+                },
+                formatKeyContents(record) {
+                    let contents = record.keyContents.join(', ');
+                    if (record.keyContents.includes('其他')) {
+                        contents = contents.replace('其他', '其他: ' + record.otherContent);
+                    }
+                    return contents;
+                }
+            }
+        });
+        app.mount('#app');
+    </script>
+</body>
+</html>
